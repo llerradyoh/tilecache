@@ -120,7 +120,7 @@ class GDAL(MetaLayer):
             for i in range(bands):
                 array[:,:,i] = gdalarray.BandReadAsArray(self.ds.GetRasterBand(i+1), off_x, off_y, width_x, width_y, target_size[0], target_size[1])
 
-            im = PIL.Image.fromarray(array)
+            im = PIL.Image.fromarray(array, 'L')#TODO - make this 1 generalizable
         big = PIL.Image.new("RGBA", tile.size(), (0,0,0,0))
         if im:
             big.paste(im, (tile_offset_left, tile_offset_top))

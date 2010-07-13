@@ -347,15 +347,15 @@ class Layer (object):
         """
         return "image/" + self.extension
     
-    def renderTile (self, tile):
+    def renderTile (self, tile, force = False):
         # To be implemented by subclasses
         pass 
 
-    def render (self, tile):
+    def render (self, tile, force = False):
         return self.renderTile(tile)
 
 class MetaLayer (Layer):
-    __slots__ = ('metaTile', 'metaSize', 'metaBuffer')
+    __slots__ = ('metaTile', 'metaSize', 'metaBuffer', 'metaCache')
     
     config_properties = Layer.config_properties + [
       {'name':'name', 'description': 'Name of Layer'}, 
@@ -366,7 +366,7 @@ class MetaLayer (Layer):
 
 
     def __init__ (self, name, metatile = "", metasize = (5,5),
-                              metabuffer = (10,10), **kwargs):
+                              metabuffer = (10,10), metacache = None, **kwargs):
         Layer.__init__(self, name, **kwargs)
         self.metaTile    = metatile.lower() in ("true", "yes", "1")
         if isinstance(metasize, str):
@@ -377,6 +377,7 @@ class MetaLayer (Layer):
                 metabuffer = (metabuffer[0], metabuffer[0])
         self.metaSize    = metasize
         self.metaBuffer  = metabuffer
+        self.metaCache   = metacache
 
     def getMetaSize (self, z):
         if not self.metaTile: return (1,1)
@@ -389,10 +390,23 @@ class MetaLayer (Layer):
         y = int(tile.y / self.metaSize[1])
         return MetaTile(self, x, y, tile.z) 
 
-    def renderMetaTile (self, metatile, tile):
-        import StringIO, Image
 
-        data = self.renderTile(metatile)
+    def renderMetaTileCacher (self, metatile, force = False):
+        if self.metaCache:            
+            if not force:
+                image = self.metaCache.get(metatile)
+            if not image:
+                data = self.renderTile(metatile)
+                if (data): image = self.cache.set(metatile, data)
+                else: raise Exception("Zero length data returned from layer.")                
+        else:
+            image = self.renderTile(metaTile)
+        return image    
+    
+    def renderMetaTile (self, metatile, tile, force = False):
+        import StringIO, Image
+        
+        data = self.renderMetaTileCacher(metatile, force)
         image = Image.open( StringIO.StringIO(data) )
 
         metaCols, metaRows = self.getMetaSize(metatile.z)
@@ -425,17 +439,27 @@ class MetaLayer (Layer):
 
     def render (self, tile, force=False):
         if self.metaTile:
-            metatile = self.getMetaTile(tile)
-            try:
-                self.cache.lock(metatile)
-                image = None
-                if not force:
-                    image = self.cache.get(tile)
-                if not image:
-                    image = self.renderMetaTile(metatile, tile)
-            finally:
-                self.cache.unlock(metatile)
-            return image
+            if isinstance(tile, MetaTile):
+                metatile = tile
+                try:
+                    self.metaCache.lock(metatile)
+                    image = self.renderMetaTileCacher(metatile, force)                        
+                finally:
+                    self.metaCache.unlock(metatile)
+                return image
+            else:    
+                metatile = self.getMetaTile(tile)
+                try:
+                    self.metaCache.lock(metatile)
+                    image = None
+                    if not force:
+                        image = self.cache.get(tile)
+                    if not image:
+                        image = self.renderMetaTile(metatile, tile, force)
+                        
+                finally:
+                    self.metaCache.unlock(metatile)
+                return image
         else:
             if self.watermarkimage:
                 return self.watermark(self.renderTile(tile))
