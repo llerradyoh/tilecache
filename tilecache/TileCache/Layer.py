@@ -397,7 +397,7 @@ class MetaLayer (Layer):
                 image = self.metaCache.get(metatile)
             if not image:
                 data = self.renderTile(metatile)
-                if (data): image = self.cache.set(metatile, data)
+                if (data): image = self.metaCache.set(metatile, data)
                 else: raise Exception("Zero length data returned from layer.")                
         else:
             image = self.renderTile(metaTile)
