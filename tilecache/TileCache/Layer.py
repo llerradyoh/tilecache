@@ -392,7 +392,8 @@ class MetaLayer (Layer):
 
 
     def renderMetaTileCacher (self, metatile, force = False):
-        if self.metaCache:            
+        if self.metaCache:
+            image = None            
             if not force:
                 image = self.metaCache.get(metatile)
             if not image:
