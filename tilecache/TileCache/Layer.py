@@ -117,7 +117,7 @@ class Layer (object):
                         extension = "png", mime_type = None, cache = None,  debug = True, 
                         watermarkimage = None, watermarkopacity = 0.2,
                         spherical_mercator = False,
-                        extent_type = "strict", units = "degrees", tms_type = "", **kwargs ):
+                        extent_type = "strict", units = "degrees", tms_type = "", quality = 90, **kwargs ):
         """Take in parameters, usually from a config file, and create a Layer.
 
         >>> l = Layer("Name", bbox="-12,17,22,36", debug="no")
@@ -135,7 +135,7 @@ class Layer (object):
         self.description = description
         self.layers = layers or name
         self.paletted = False
-        
+        self.quality = quality
         self.spherical_mercator = spherical_mercator and spherical_mercator.lower() in ["yes", "y", "t", "true"]
         if self.spherical_mercator:
             bbox = "-20037508.34,-20037508.34,20037508.34,20037508.34"
@@ -422,9 +422,9 @@ class MetaLayer (Layer):
                 subimage = image.crop((minx, miny, maxx, maxy))
                 buffer = StringIO.StringIO()
                 if image.info.has_key('transparency'): 
-                    subimage.save(buffer, self.extension, transparency=image.info['transparency'])
+                    subimage.save(buffer, self.extension, transparency=image.info['transparency'], quality = self.quality)
                 else:
-                    subimage.save(buffer, self.extension)
+                    subimage.save(buffer, self.extension, quality = self.quality)
                 buffer.seek(0)
                 subdata = buffer.read()
                 x = metatile.x * self.metaSize[0] + i
