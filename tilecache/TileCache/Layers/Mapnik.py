@@ -9,14 +9,16 @@ class Mapnik(MetaLayer):
     config_properties = [
       {'name':'name', 'description': 'Name of Layer'}, 
       {'name':'mapfile', 'description': 'Location of Mapnik XML map description.'},
+      {'name':'mapstring', 'description': 'Contents of Mapnik XML map.'},
       {'name':'projection', 'description': 'Target map projection.'},
       {'name':'fonts', 'description': 'Comma-seperated list of fonts to add to the Mapik registered fonts list.'},
     ] + MetaLayer.config_properties 
     
-    def __init__ (self, name, mapfile = None, projection = None, fonts = None, **kwargs):
+    def __init__ (self, name, mapfile = None, mapstring = None, projection = None, fonts = None, **kwargs):
         MetaLayer.__init__(self, name, **kwargs) 
+        self.mapnik = None
         self.mapfile = mapfile
-        self.mapnik  = None
+        self.mapstring  = mapstring
         self.projection = projection
         if fonts:
             self.fonts = fonts.split(",")
@@ -36,7 +38,12 @@ class Mapnik(MetaLayer):
             
             # Init it as 0,0
             m = mapnik.Map( 0, 0 )
-            mapnik.load_map(m,self.mapfile)
+            if self.mapfile:
+                mapnik.load_map(m,self.mapfile)
+            elif self.mapstring:
+                mapnik.load_map_from_string(m, self.mapstring)
+            else:
+                raise Exception('No map specified: either a map, mapfile or mapstring must be specified.') 
              
             if self.projection:
                 m.srs = self.projection
