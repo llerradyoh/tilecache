@@ -4,6 +4,7 @@ import os, sys
 from warnings import warn
 from Client import WMS
 from Service import TileCacheException
+import logging
 
 DEBUG = True
 
@@ -401,42 +402,45 @@ class MetaLayer (Layer):
                 if (data): image = self.metaCache.set(metatile, data)
                 else: raise Exception("Zero length data returned from layer.")                
         else:
-            image = self.renderTile(metaTile)
+            image = self.renderTile(metatile)
         return image    
     
-    def renderMetaTile (self, metatile, tile, force = False):
-        import StringIO, Image
-        
+    #note that this force only corresponds to whether or not to force redraw of the metatile
+    def renderMetaTile (self, metatile, tile = None, force = False, metaOnly = False):
         data = self.renderMetaTileCacher(metatile, force)
-        image = Image.open( StringIO.StringIO(data) )
 
-        metaCols, metaRows = self.getMetaSize(metatile.z)
-        metaHeight = metaRows * self.size[1] + 2 * self.metaBuffer[1]
-        for i in range(metaCols):
-            for j in range(metaRows):
-                minx = i * self.size[0] + self.metaBuffer[0]
-                maxx = minx + self.size[0]
-                ### this next calculation is because image origin is (top,left)
-                maxy = metaHeight - (j * self.size[1] + self.metaBuffer[1])
-                miny = maxy - self.size[1]
-                subimage = image.crop((minx, miny, maxx, maxy))
-                buffer = StringIO.StringIO()
-                if image.info.has_key('transparency'): 
-                    subimage.save(buffer, self.extension, transparency=image.info['transparency'], quality = self.quality)
-                else:
-                    subimage.save(buffer, self.extension, quality = self.quality)
-                buffer.seek(0)
-                subdata = buffer.read()
-                x = metatile.x * self.metaSize[0] + i
-                y = metatile.y * self.metaSize[1] + j
-                subtile = Tile( self, x, y, metatile.z )
-                if self.watermarkimage:
-                    subdata = self.watermark(subdata)
-                self.cache.set( subtile, subdata )
-                if x == tile.x and y == tile.y:
-                    tile.data = subdata
-
-        return tile.data
+        if not metaOnly:
+            import cStringIO as StringIO, Image
+            image = Image.open( StringIO.StringIO(data) )
+            metaCols, metaRows = self.getMetaSize(metatile.z)
+            metaHeight = metaRows * self.size[1] + 2 * self.metaBuffer[1]
+            for i in range(metaCols):
+                for j in range(metaRows):
+                    minx = i * self.size[0] + self.metaBuffer[0]
+                    maxx = minx + self.size[0]
+                    ### this next calculation is because image origin is (top,left)
+                    maxy = metaHeight - (j * self.size[1] + self.metaBuffer[1])
+                    miny = maxy - self.size[1]
+                    subimage = image.crop((minx, miny, maxx, maxy))
+                    buffer = StringIO.StringIO()
+                    if image.info.has_key('transparency'): 
+                        subimage.save(buffer, self.extension, transparency=image.info['transparency'], quality = self.quality)
+                    else:
+                        subimage.save(buffer, self.extension, quality = self.quality)
+                    buffer.seek(0)
+                    subdata = buffer.read()
+                    x = metatile.x * self.metaSize[0] + i
+                    y = metatile.y * self.metaSize[1] + j
+                    subtile = Tile( self, x, y, metatile.z )
+                    if self.watermarkimage:
+                        subdata = self.watermark(subdata)
+                    self.cache.set( subtile, subdata )
+                    if tile is not None and x == tile.x and y == tile.y:
+                        tile.data = subdata
+            if tile is not None:
+                return tile.data
+            else:
+                return None    
 
     def render (self, tile, force=False):
         if self.metaTile:
