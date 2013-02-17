@@ -3,7 +3,8 @@
 import sys
 
 try:
-    from setuptools import setup
+    from distutils.core import setup
+    #from setuptools import setup
 except:
     from ez_setup import use_setuptools
     use_setuptools()
